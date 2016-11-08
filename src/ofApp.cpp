@@ -101,11 +101,7 @@ void ofApp::setup(){
     uprightCalibration = false;
     upsideDownCalibration = false;
     
-    /*serial.listDevices();
-     vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
-     int baud = 9600;
-     serial.setup(1, baud);
-     */
+    
     trainingData.setNumDimensions(3);
     
     
