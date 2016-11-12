@@ -2,9 +2,24 @@
 
 
 #include "reader.h"
+#include <IOKit/IOKitLib.h>
 //#include "ofMain.h"
 //#include "GRT/GRT.h"
 using namespace GRT;
+
+
+
+
+
+struct mouse_report_t {
+    uint8_t buttons;
+    int8_t x;
+    int8_t y;
+};
+
+
+
+
 
 
 
@@ -38,7 +53,23 @@ public:
     
     GRT::VectorDouble zeroGs;
     double range;
-    bool uprightCalibration, upsideDownCalibration,isCalibratedUp,isCalibratedUpD;
+    bool uprightCalibration, upsideDownCalibration,isCalibrated;
     GRT::MatrixDouble uprightData, upsideDownData;
     //ofSerial	serial;
+    
+    
+    
+    io_iterator_t iterator;
+    io_service_t service;
+    io_connect_t connect;
+
+    kern_return_t ret;
+    struct mouse_report_t mouse;
+    float conversionFactor;
+    uint32_t send_count;
+    uint64_t send[4];
+    uint64_t mouseInput[8];
+    
+    
+    
 };
