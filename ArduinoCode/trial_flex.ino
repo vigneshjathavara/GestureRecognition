@@ -25,61 +25,55 @@ void setup(){
   Serial.begin(9600);       //Begin serial communication
 
 }
-bool flag = true;
-void loop(){
- 
-  value = analogRead(flexPin); //Read and save analog value from potentiometer
-  if (value>1000)
+value = analogRead(flexPin); //Read and save analog value from potentiometer
+   //Serial.println(value);
+  if(value>1000)
   {
-    //time1=millis();
-    if (clicks == false)
+    if(clicks == false && millis()-time1 >200)
     {
-      //Serial.println("one_click");
-      clicks = true;
-   
-     time1=millis();
-     //Serial.println(time1);
-     //Serial.println(millis()-time1);
-   }
-    else if(millis()-time1 > 300)
-    { 
-       // Serial.print("else:");
-        //Serial.println(millis());
-        
-        if(millis()-time1<500 && flag == true) 
-        {
-         // Serial.print("check:"); Serial.println(value);
-          Serial.println("Double_click");
+      clicks=true;
+      time1 = millis();
+    }
+
+    else
+    {
+      if( back && millis()-time1<700)
+      {
           clicks = false;
-          flag = false;
-        }
-        else 
-        {
-          //Serial.println("SingleClick");
-          clicks = false;
-          //flag = true;
-          
-        }
-    
+          back = false;
+          Serial.println("Double_Click"); 
+          time1 = millis();
+      }
+
+      if( !back && millis()-time1>700 && hold==false)
+      {
+          //clicks = false;
+          hold=true;
+          Serial.println("Click_Hold");             
+      }
     }
   }
 
-  if(millis()-time1 > 600 && flag == false)
-{                                                                                                                                                                                                                                                                                                                                                                                       
-  flag =true;
-}
-  if(millis()-time1 > 500 &&clicks==true)
+  if(clicks && value <940 && hold==false)
   {
- // flag =true;
-    clicks = false;
-    Serial.println("SingleClick");
+      back =true;
   }
-  /*if (value<1000 && clicks == true)
-  {
-    back=true;
-  }
- */
 
+
+
+  if(clicks && millis()-time1>700 && back )    
+      {
+        clicks=false;
+        back = false;
+        Serial.println("Single_Click");
+      }
+
+  if(hold == true && value<940)   
+      {
+          hold = false;
+          clicks= false;
+          Serial.println("Hold_Release");
+      }
   
   //Serial.println(value);               //Print value
   //value = map(value, 700, 900, 0, 255);//Map value 0-1023 to 0-255 (PWM)
