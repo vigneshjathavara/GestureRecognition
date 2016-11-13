@@ -12,7 +12,7 @@
 #define DEVICE_NAME "Foohid Virtual Mouse"
 #define DEVICE_SN "SN 123456"
 
-
+bool button = false;
 unsigned char report_descriptor[] = {
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
     0x09, 0x02,                    // USAGE (Mouse)
@@ -66,7 +66,8 @@ unsigned char report_descriptor[] = {
 
 
 
-bool start = false;
+bool start = false, sc=false, dc=false, ch=false;
+int dcRound=0, scRound=0;
 
 std::mutex inputDataMutex;
 
@@ -114,7 +115,7 @@ void  readSerial()
                  for(int i=0;i<result;i++)
                  cout<<buf[i];
                  cout<<endl;
-                */
+                 */
                 buffer_.insert(buffer_.end(), buf, buf + result);
             }
             
@@ -128,9 +129,32 @@ void  readSerial()
             std::string s(buffer_.begin(), newline);
             buffer_.erase(buffer_.begin(), ++newline);
             
-            if(std::string::npos != s.find("Tap"))
+            if(std::string::npos != s.find("SC"))
+            {
+                cout<<"Single_Click"<<endl;
+                sc = true;
+            }
+            else if(std::string::npos != s.find("DC"))
+            {
+                cout<<"Double_Click"<<endl;
+                dc = true;
+                
+            }
+            else if(std::string::npos != s.find("CH"))
+            {
+                cout<<"Click_Hold"<<endl;
+                ch=true;
+            }
+            else if(std::string::npos != s.find("HR"))
+            {
+                cout<<"Hold_Release"<<endl;
+                ch = false;
+                
+            }
+            else if(std::string::npos != s.find("Tap"))
             {
                 cout<<"TAP"<<endl;
+                
             }
             else
             {
@@ -218,7 +242,7 @@ void ofApp::setup(){
     
     // Fill up the input arguments.
     uint32_t input_count = 8;
-   // uint64_t mouseInput[input_count];
+    // uint64_t mouseInput[input_count];
     mouseInput[0] = (uint64_t) strdup(DEVICE_NAME);  // device name
     mouseInput[1] = strlen((char *)mouseInput[0]);  // name length
     mouseInput[2] = (uint64_t) report_descriptor;  // report descriptor
@@ -243,6 +267,7 @@ void ofApp::setup(){
     send[3] = sizeof(struct mouse_report_t);  // mouse struct len
     
     conversionFactor = 100;
+    mouse.buttons = 0;
 }
 
 //--------------------------------------------------------------
@@ -277,7 +302,7 @@ void ofApp::update(){
      if (ret != KERN_SUCCESS) {
      printf("Unable to send message to HID device.\n");
      }
-
+     
      */
     
     
@@ -291,42 +316,113 @@ void ofApp::update(){
         
         if(!uprightCalibration && !upsideDownCalibration && isCalibrated==true)
         {
-            cout<<"TEST!\n";
+            //00000cout<<"TEST!\n";
             for (int i = 0; i < 3; i++)
             {
                 result[i] = (sample[i] - zeroGs[i]) / range;
             }
-            cout<<"X:"<<result[0]<<"\tY:"<<result[1]<<"\n";
+            //cout<<"X:"<<result[0]<<"\tY:"<<result[1]<<"\n";
             
             
             if(result[0]>=0.2 || result[0]<=-0.2)
             {
-                cout<<"Changing mouseX\n";
-                mouse.x = result[0] * conversionFactor;
+                //cout<<"Changing mouseX\n";
+                mouse.x = result[0] * (-conversionFactor);
                 
             }
             else
             {
                 mouse.x =0;
             }
-        
+            
             if(result[1]>=0.2 || result[1] <=-0.2)
             {
-                cout<<"Changing MouseY\n";
-                mouse.y = (result[1])*conversionFactor;
+                //cout<<"Changing MouseY\n";
+                mouse.y = (result[1])*(conversionFactor);
             }
             else
             {
                 mouse.y = 0;
             }
             
-            mouse.buttons = 0;
+            if(sc)
+            {
+                if(scRound == 0)
+                {
+                    mouse.buttons =1;
+                    scRound++;
+                    cout<<"Single Click press\n";
+                }
+                else
+                {
+                    mouse.buttons = 0;
+                    scRound = 0;
+                    sc = false;
+                    cout<<"Single Click Release\n";
+                }
+            }
+            else if( dc)
+            {
+                if(dcRound == 0)
+                {
+                    mouse.buttons = 1;
+                    dcRound++;
+                    cout<<"Double Click press1\n";
+                }
+                else if(dcRound==1)
+                {
+                    mouse.buttons = 0;
+                    dcRound++;
+                    cout<<"Double Click release1\n";
+                }
+                else if(dcRound==2)
+                {
+                    mouse.buttons = 1;
+                    dcRound++;
+                    cout<<"Double Click press2\n";
+                }
+                else
+                {
+                    mouse.buttons=0;
+                    dcRound = 0;
+                    dc = false;
+                    cout<<"Double Click release2\n";
+                }
+                
+                
+            }
+            else if(ch)
+            {
+                mouse.buttons=1;
+                cout<<"Click Hold\n";
+            }
+            else
+            {
+                mouse.buttons=0;
+                cout<<"Release State\n";
+            }
+            /*if(button ==true)
+            {
+                mouse.buttons |=1;
+                //button = false;
+                unsigned char *p = (unsigned char*)&mouse;
+                for (size_t i=0; i<sizeof(mouse); ++i)
+                    printf("%.2x", p[i]);
+                cout<<endl;
+            }
+            */
+            
+            //mouse.buttons = 0;
+            
+            
+            
+            
             ret = IOConnectCallScalarMethod(connect, FOOHID_SEND, send, send_count, NULL, 0);
             if (ret != KERN_SUCCESS) {
                 printf("Unable to send message to HID device.\n");
             }
-               
-
+            
+            
         }
         
         
@@ -494,6 +590,10 @@ void ofApp::keyPressed(int key){
     
     switch ( key) {
             
+        case '0':
+            button = !button ;
+            break;
+            
         case '1':
             uprightCalibration = !uprightCalibration;
             if(!uprightCalibration)
@@ -569,7 +669,12 @@ void ofApp::keyPressed(int key){
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
-    
+    /*  switch(key)
+     {
+     case '0':
+     mouse.buttons = 0;
+     break;
+     }*/
 }
 
 //--------------------------------------------------------------
