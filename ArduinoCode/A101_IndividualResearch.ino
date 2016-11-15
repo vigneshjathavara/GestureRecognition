@@ -1,8 +1,26 @@
+#include <QueueArray.h>
 #include "CurieIMU.h"
 
 int ax, ay, az;
+QueueArray<char> outputQueue;
 
+void AddToQueue(String s)
+{
+  for(unsigned int i=0;i<s.length();i++)
+  {
+    outputQueue.enqueue(s.charAt(i));
+  }
+  
+}
 
+void PrintQueue()
+{
+  while(!outputQueue.isEmpty())
+  {   
+      Serial.print(outputQueue.dequeue());
+  }
+  
+}
 
 String ConvertIntToString(int num)
 {
@@ -34,24 +52,106 @@ String IMUFrame(int x, int y, int z)
 }
 
 
+const int flexPin = A0; //pin A0 to read analog input
+unsigned long time1;
+bool clicks = false;
+bool back = false;
+bool hold = false;
+
+int value; //save analog value
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);
-
+  outputQueue.setPrinter(Serial);
+  //Serial.println(sizeof(String));
   CurieIMU.begin();
 
   if (!CurieIMU.testConnection()) {
     Serial.println("CurieImu connection failed");
   }
 
+   CurieIMU.attachInterrupt(eventCallback);
+
   CurieIMU.setAccelerometerRange(8);
+
+  // Reduce threshold to allow detection of weaker taps (>= 750mg)
+  CurieIMU.setDetectionThreshold(CURIE_IMU_TAP, 750); // (750mg)
+
+  // Enable Double-Tap detection
+  CurieIMU.interrupts(CURIE_IMU_TAP);
 }
 
 void loop() {
   CurieIMU.readAccelerometer(ax, ay, az);
   String s = IMUFrame(ax,ay,az);
-  Serial.print(s);
+  AddToQueue(s);
+
+
+  
+  value = analogRead(flexPin); //Read and save analog value from potentiometer
+   //Serial.println(value);
+  if(value>1000)
+  {
+    if(clicks == false && millis()-time1 >200)
+    {
+      clicks=true;
+      time1 = millis();
+    }
+
+    else
+    {
+      if( back && millis()-time1<700)
+      {
+          clicks = false;
+          back = false;
+          //Serial.println("Double_Click"); 
+          AddToQueue("DC000000000000000\n");
+          time1 = millis();
+      }
+
+      if( !back && millis()-time1>700 && hold==false)
+      {
+          //clicks = false;
+          hold=true;
+          //Serial.println("Click_Hold");  
+          AddToQueue("CH000000000000000\n");           
+      }
+    }
+  }
+
+  if(clicks && value <940 && hold==false)
+  {
+      back =true;
+  }
+
+
+
+  if(clicks && millis()-time1>700 && back )    
+      {
+        clicks=false;
+        back = false;
+        //Serial.println("Single_Click");
+        AddToQueue("SC000000000000000\n");
+      }
+
+  if(hold == true && value<940)   
+      {
+          hold = false;
+          clicks= false;
+          //Serial.println("Hold_Release");
+          AddToQueue("HR000000000000000\n");
+      }
+
+
+
+      
+  PrintQueue();
+  /*while(!outputQueue.isEmpty())
+  {
+      String outputString = outputQueue.dequeue();    
+      Serial.println(outputString);
+  }*/
   /*
   Serial.print(ax);
   Serial.print("\t");
@@ -61,4 +161,16 @@ void loop() {
   Serial.println();
   */
   delay(10);
+}
+
+
+static void eventCallback()
+{
+  if (CurieIMU.getInterruptStatus(CURIE_IMU_TAP)) {
+      String s ="Tap00000000000000\n";
+      for(unsigned int i=0;i<s.length();i++)
+      {
+        outputQueue.enqueue(s.charAt(i));
+      }
+  }
 }
