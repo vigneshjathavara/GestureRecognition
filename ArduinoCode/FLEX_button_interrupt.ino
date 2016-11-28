@@ -67,7 +67,7 @@ void setup() {
 
 void loop() {
   digitalWrite(ledPin, state);
-  Serial.println("i m the best");
+  Serial.println("Trial");
   //delay(300);
   
 }
